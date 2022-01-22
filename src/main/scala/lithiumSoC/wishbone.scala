@@ -27,12 +27,34 @@ class WishboneAdapter(addr_width: Int, data_width: Int, resp_width: Int = 0) ext
   bus.r.addr.ready := RegInit(1.B)
   bus.r.data.valid := 0.B
   bus.r.data.bits := 0.B
-  wb.datwr := 0.B
-  wb.adr := 0.B
-  wb.sel := 0.B
-  wb.we := 0.B
-  wb.cyc := 0.B
-  wb.stb := 0.B
+  val wb_datwr = Reg(UInt())
+  val wb_adr = Reg(UInt())
+  val wb_sel = Reg(UInt())
+  val wb_we = RegInit(0.B)
+  val wb_cyc = RegInit(0.B)
+  val wb_stb = RegInit(0.B)
+  wb.datwr := wb_datwr
+  wb.adr := wb_adr
+  wb.sel := wb_sel
+  wb.we := wb_we
+  wb.cyc := wb_cyc
+  wb.stb := wb_stb
+  when(bus.r.addr.fire){
+    wb_adr := bus.r.addr.bits
+    wb_we := 0.B
+    wb_cyc := 1.B
+    wb_stb := 1.B
+  }.elsewhen(bus.w.req.fire){
+    wb_adr := bus.w.req.bits.addr
+    wb_datwr := bus.w.req.bits.data
+    wb_sel := bus.w.req.bits.strobe
+    wb_we := 1.B
+    wb_cyc := 1.B
+    wb_stb := 1.B
+  }.otherwise {
+    wb_cyc := 0.B
+    wb_stb := 0.B
+  }
 }
 
 class WishboneBridge(addr_width: Int, data_width: Int, resp_width: Int) extends Module with RequireSyncReset {
