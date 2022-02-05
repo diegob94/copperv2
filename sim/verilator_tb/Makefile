@@ -1,4 +1,4 @@
-all: compile
+all: run
 
 .PHONY: clean
 clean:
@@ -13,3 +13,6 @@ configure:
 compile: configure
 	cd build && cmake --build .
 
+.PHONY: run
+run: compile
+	cd build && ./sim
