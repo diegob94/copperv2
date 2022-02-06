@@ -1,0 +1,23 @@
+
+ROOT_DIR = ../..
+RESOURCES_DIR = $(ROOT_DIR)/src/main/resources
+RTL_SOURCES = $(RESOURCES_DIR)/rtl_v1/copperv.v \
+	$(RESOURCES_DIR)/rtl_v1/control_unit.v \
+	$(RESOURCES_DIR)/rtl_v1/idecoder.v \
+	$(RESOURCES_DIR)/rtl_v1/register_file.v \
+	$(RESOURCES_DIR)/rtl_v1/execution.v
+
+.PHONY: all
+all: run
+
+.PHONY: setup
+setup:
+	mkdir -p work
+
+work/sim.vvp: setup testbench.v fake_memory.v include/testbench_h.v
+	iverilog -s tb $(RTL_SOURCES) testbench.v fake_memory.v -o $@ -I $(RESOURCES_DIR)/rtl_v1/include -I include
+
+.PHONY: run
+run: work/sim.vvp
+	cd work; vvp sim.vvp
+

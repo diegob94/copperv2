@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 project(copperv)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_package(verilator HINTS $ENV{VERILATOR_ROOT} ${VERILATOR_ROOT})
 if (NOT verilator_FOUND)

@@ -16,3 +16,4 @@ compile: configure
 .PHONY: run
 run: compile
 	cd build && ./sim
+
