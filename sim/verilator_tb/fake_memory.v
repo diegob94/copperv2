@@ -1,6 +1,7 @@
 `timescale 1ns/1ps
 `include "testbench_h.v"
 `include "copperv_h.v"
+`default_nettype none
 
 module fake_memory #(
     parameter address_width = `FAKE_MEM_ADDR_WIDTH,
@@ -25,10 +26,12 @@ module fake_memory #(
     output reg dw_resp_valid,
     output reg [`BUS_WIDTH-1:0] dr_data,
     output reg ir_data_valid,
-    output reg ir_addr_ready,
+    output ir_addr_ready,
     output reg [`BUS_WIDTH-1:0] ir_data,
     output reg [`BUS_RESP_WIDTH-1:0] dw_resp
 );
+reg r_addr_ready;
+reg w_data_addr_ready;
 reg [7:0] memory [length - 1:0];
 `STRING hex_file;
 initial begin
@@ -51,19 +54,20 @@ reg read_addr_tran;
 reg read_data_tran;
 reg write_data_addr_tran;
 reg write_resp_tran;
+wire r_addr_valid = ir_addr_valid | dr_addr_valid;
+wire r_data_ready = ir_data_ready | dr_data_ready;
+wire w_data_addr_valid = dw_data_addr_valid;
+wire w_resp_ready = dw_resp_ready;
+reg w_resp_valid;
 always @(*) begin
     read_addr_tran = r_addr_valid && r_addr_ready;
     read_data_tran = r_data_valid && r_data_ready;
     write_data_addr_tran = w_data_addr_valid && w_data_addr_ready;
     write_resp_tran = w_resp_valid && w_resp_ready;
 end
-assign r_addr_valid = ir_addr_valid | dr_addr_valid;
-assign r_data_ready = ir_data_ready | dr_data_ready;
-assign w_data_addr_valid = dw_data_addr_valid;
-assign w_resp_ready = dw_resp_ready;
-assign r_addr = ir_addr_valid ? ir_addr : dr_addr;
-assign w_data = dw_data;
-assign w_addr = dw_addr;
+wire [`BUS_WIDTH-1:0] r_addr = ir_addr_valid ? ir_addr : dr_addr;
+wire [`BUS_WIDTH-1:0] w_data = dw_data;
+wire [`BUS_WIDTH-1:0] w_addr = dw_addr;
 
 reg ir_addr_tran;
 always @(posedge clk) begin
@@ -85,7 +89,7 @@ always @(posedge clk) begin
         dw_data_addr_tran <= dw_data_addr_valid && dw_data_addr_ready;
     end
 end
-
+reg w_resp;
 always @(*) begin
     if(ir_addr_tran) begin
         ir_data_valid = r_data_valid;
@@ -129,6 +133,7 @@ always @(posedge clk) begin
         r_data_valid <= 0;
     end
 end
+wire [(`BUS_WIDTH/8)-1:0] w_strobe = dw_strobe;
 always @(posedge clk) begin
     if(!rst) begin
         w_resp <= 0;
@@ -144,7 +149,4 @@ always @(posedge clk) begin
         w_resp_valid <= 0;
     end
 end
-//always @(negedge clk)
-//    if (read_addr_tran)
-//        $display($time, {msg_prefix, "read addr 0x%0X data 0x%0X"}, r_addr, r_data);
 endmodule

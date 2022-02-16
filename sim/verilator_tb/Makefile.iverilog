@@ -1,5 +1,5 @@
 
-ROOT_DIR = ../..
+ROOT_DIR = $(abspath ../..)
 RESOURCES_DIR = $(ROOT_DIR)/src/main/resources
 RTL_SOURCES = $(RESOURCES_DIR)/rtl_v1/copperv.v \
 	$(RESOURCES_DIR)/rtl_v1/control_unit.v \
@@ -19,5 +19,8 @@ work/sim.vvp: setup testbench.v fake_memory.v include/testbench_h.v
 
 .PHONY: run
 run: work/sim.vvp
-	cd work; vvp sim.vvp
+	cd work; vvp sim.vvp +HEX_FILE=$(ROOT_DIR)/sim/tests/hello_world/hello_world.hex
 
+.PHONY: clean
+clean:
+	rm -rf work
