@@ -153,7 +153,7 @@ task test_failed;
 reg [`DATA_WIDTH-1:0] test_id;
 begin
     test_id = `CPU_INST.regfile.mem[`REG_T3];
-    $display($time, ": TEST FAILED: instruction_id: %0d test_id: %0d", test_id[31:16], test_id[15:0]);
+    $display($time, ": TEST FAILED");
     finish_sim;
 end
 endtask
