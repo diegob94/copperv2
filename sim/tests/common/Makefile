@@ -23,4 +23,4 @@ crt0.o: $(COMMON_DIR)/crt0.S
 
 .PHONY: clean
 clean:
-	rm -fv *.o *.elf *.debug *.E
+	rm -fv *.o *.elf *.debug *.E *.hex
