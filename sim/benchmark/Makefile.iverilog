@@ -1,29 +1,16 @@
-TEST_NAME=uninitialized_variable_test
-ROOT_DIR = $(abspath ../..)
-RESOURCES_DIR = $(ROOT_DIR)/src/main/resources
-RTL_SOURCES = $(RESOURCES_DIR)/rtl_v1/copperv.v \
-	$(RESOURCES_DIR)/rtl_v1/control_unit.v \
-	$(RESOURCES_DIR)/rtl_v1/idecoder.v \
-	$(RESOURCES_DIR)/rtl_v1/register_file.v \
-	$(RESOURCES_DIR)/rtl_v1/execution.v
-TESTS_DIR=$(ROOT_DIR)/sim/tests
-TEST_DIR=$(TESTS_DIR)/$(TEST_NAME)
-HEX_FILE=$(TEST_DIR)/$(TEST_NAME).hex
-
 .PHONY: all
 all: run
 
 work/sim.vvp: testbench.v fake_memory.v include/testbench_h.v
 	mkdir -p work
-	iverilog -s tb $(RTL_SOURCES) testbench.v fake_memory.v -o $@ -I $(RESOURCES_DIR)/rtl_v1/include -I include
-
-$(HEX_FILE):
-	$(MAKE) -C $(TEST_DIR)
+	iverilog -s $(TOPLEVEL) $(VERILOG_SOURCES) -o $@ $(COMPILE_ARGS)
 
 .PHONY: run
 run: work/sim.vvp $(HEX_FILE)
-	cd work; vvp sim.vvp +HEX_FILE=$(HEX_FILE)
+	cd work; vvp sim.vvp $(PLUSARGS)
 
 .PHONY: clean
 clean:
 	rm -rf work
+
+include Makefile.common
