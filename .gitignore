@@ -10,6 +10,7 @@ metals.sbt
 .ivy2/
 .venv/
 .pytest_cache/
+.vim/
 
 ### XilinxISE template
 # intermediate build files

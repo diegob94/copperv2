@@ -254,9 +254,8 @@ class BusMonitor(Monitor):
                 request = req_transaction,
                 response = resp_transaction
             )
-            _type = "req" if self.bfm_recv_resp is None else "full"
-            if _type == "full":
-                self.log.debug(f"Receiving transaction: %s",transaction)
+            _type = "request" if self.bfm_recv_resp is None else "full"
+            self.log.debug(f"Receiving {_type} transaction: %s",transaction)
             self._recv(transaction)
 
 class BusSourceDriver(Driver):

@@ -1,0 +1,33 @@
+TEST_NAME=uninitialized_variable_test
+ROOT_DIR = $(abspath ../..)
+RESOURCES_DIR = $(ROOT_DIR)/src/main/resources
+TOPLEVEL = tb
+VERILOG_SOURCES = $(RESOURCES_DIR)/rtl_v1/copperv.v \
+	$(RESOURCES_DIR)/rtl_v1/control_unit.v \
+	$(RESOURCES_DIR)/rtl_v1/idecoder.v \
+	$(RESOURCES_DIR)/rtl_v1/register_file.v \
+	$(RESOURCES_DIR)/rtl_v1/execution.v \
+	testbench.v fake_memory.v
+COMPILE_ARGS=-I $(RESOURCES_DIR)/rtl_v1/include -I include
+TESTS_DIR=$(ROOT_DIR)/sim/tests
+TEST_DIR=$(TESTS_DIR)/$(TEST_NAME)
+HEX_FILE=$(TEST_DIR)/$(TEST_NAME).hex
+CUSTOM_COMPILE_DEPS = $(HEX_FILE)
+PLUSARGS = +HEX_FILE=$(HEX_FILE) +dut_copperv1
+export PYTHONPATH = $(ROOT_DIR)/sim
+
+SIM ?= icarus
+TOPLEVEL_LANG ?= verilog
+
+# MODULE is the basename of the Python test file
+MODULE = cocotb_wrapper
+
+all: sim
+$(HEX_FILE):
+	$(MAKE) -C $(TEST_DIR)
+
+clean_all: clean
+	rm -rf *.log *.vcd __pycache__ *.xml
+
+# include cocotb's make rules to take care of the simulator setup
+include $(shell cocotb-config --makefiles)/Makefile.sim
