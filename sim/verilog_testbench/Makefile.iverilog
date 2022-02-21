@@ -1,6 +1,8 @@
 .PHONY: all
 all: run
 
+include Makefile.common
+
 work/sim.vvp: testbench.v fake_memory.v include/testbench_h.v
 	mkdir -p work
 	iverilog -s $(TOPLEVEL) $(VERILOG_SOURCES) -o $@ $(COMPILE_ARGS)
@@ -13,4 +15,3 @@ run: work/sim.vvp $(HEX_FILE)
 clean:
 	rm -rf work
 
-include Makefile.common

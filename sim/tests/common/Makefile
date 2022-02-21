@@ -14,12 +14,10 @@ crt0.o: $(COMMON_DIR)/crt0.S
 %.E: %.c
 	$(CC) $(CFLAGS) -E $< -o $@
 
-%.elf: %.o crt0.o
-	$(CC) $(LDFLAGS) -Wl,-T,$(LINKER_SCRIPT),-Bstatic -nostartfiles -ffreestanding $^ -o $@
-	$(SCRIPTS_DIR)/utils.py debug $@
-
-%.hex: %.elf
-	$(OBJCOPY) -O verilog $< $@
+%.hex: %.o crt0.o
+	$(CC) $(LDFLAGS) -Wl,-T,$(LINKER_SCRIPT),-Bstatic -nostartfiles -ffreestanding $^ -o $(@:.hex=.elf)
+	$(SCRIPTS_DIR)/utils.py debug $(@:.hex=.elf)
+	$(OBJCOPY) -O verilog $(@:.hex=.elf) $@
 
 .PHONY: clean
 clean:
