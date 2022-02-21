@@ -4,6 +4,7 @@
 
 module tb();
 parameter timeout = `PERIOD*1000000;
+reg finish_cocotb = 0;
 // copperv inputs
 reg clk;
 reg rst;
@@ -161,7 +162,11 @@ task finish_sim;
 begin
     $fwrite(fake_uart_fp, "\n# copperv testbench finished\n");
     $fclose(fake_uart_fp);  
-    $finish;
+    if ($test$plusargs("cocotb")) begin
+        finish_cocotb = 1;
+    end else begin
+        $finish;
+    end
 end
 endtask
 endmodule

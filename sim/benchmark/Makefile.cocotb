@@ -11,4 +11,5 @@ clean_all: clean
 	rm -rf *.log *.vcd __pycache__ *.xml
 
 include Makefile.common
+PLUSARGS += +cocotb
 include $(shell cocotb-config --makefiles)/Makefile.sim

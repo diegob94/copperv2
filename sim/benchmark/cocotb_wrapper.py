@@ -1,15 +1,15 @@
 import cocotb
-from cocotb.triggers import Event
 from bus import BusMonitor, BusReadTransaction, BusWriteTransaction, CoppervBusBfm
 from regfile import RegFileWriteMonitor, RegFileReadMonitor, RegFileBfm
 from cocotb.log import SimLog
 import logging
+from cocotb.triggers import RisingEdge
 
 @cocotb.test()
 async def wrapper(dut):
     """Wrapper for adding python monitors for debugging."""
     SimLog("cocotb").setLevel(logging.DEBUG)
-#    SimLog("bfm").setLevel(logging.DEBUG)
+    #SimLog("bfm").setLevel(logging.DEBUG)
     prefix = None
     core = dut.dut
     if not cocotb.plusargs.get('dut_copperv1',False):
@@ -46,5 +46,9 @@ async def wrapper(dut):
     bus_dw_req_monitor = BusMonitor("bus_dw_req",BusWriteTransaction,bus_bfm.dw_get_request)
     regfile_write_monitor = RegFileWriteMonitor("regfile_write",regfile_bfm)
     regfile_read_monitor = RegFileReadMonitor("regfile_read",regfile_bfm)
-    e = Event()
-    await e.wait()
+    while True:
+        await RisingEdge(dut.finish_cocotb)
+        if dut.finish_cocotb.value.binstr == '1':
+            break
+
+
