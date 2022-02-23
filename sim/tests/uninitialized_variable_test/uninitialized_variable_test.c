@@ -13,9 +13,18 @@ void print(char* c){
 }
 
 int a;
+int b;
+int c;
+int d;
 
 int main(){
     if (a != 0)
+        *TEST_RESULT = T_FAIL;
+    if (b != 0)
+        *TEST_RESULT = T_FAIL;
+    if (c != 0)
+        *TEST_RESULT = T_FAIL;
+    if (d != 0)
         *TEST_RESULT = T_FAIL;
     *TEST_RESULT = T_PASS;
 }

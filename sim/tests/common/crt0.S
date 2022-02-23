@@ -8,7 +8,7 @@ _start:
 loop:
     sw zero, 0(t0)
     addi t0, t0, 4
-    bgtu t0, t1, loop
+    bgtu t1, t0, loop
     .cfi_startproc
     .cfi_undefined ra
     .option push
