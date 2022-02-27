@@ -1,6 +1,6 @@
 
-dhrystone.hex: dhrystone_main.o dhrystone.o syscalls.o | dhrystone.E dhrystone_main.E
+dhrystone.hex: dhrystone_main.o dhrystone.o syscalls.o | dhrystone.E dhrystone_main.E syscalls.E
 
-CFLAGS=-DToo_Small_Time=0 -DNUMBER_OF_RUNS=1
+CFLAGS+=-DToo_Small_Time=0 -DNUMBER_OF_RUNS=1 -DDEBUG_RUNTIME
 
 include ../common/Makefile
