@@ -14,6 +14,7 @@ metals.sbt
 *.vcd
 sim_build/
 results.xml
+obj_dir/
 
 ### XilinxISE template
 # intermediate build files

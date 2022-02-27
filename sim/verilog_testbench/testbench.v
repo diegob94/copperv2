@@ -2,12 +2,15 @@
 `include "testbench_h.v"
 `include "copperv_h.v"
 
-module tb();
+module tb(
+`ifdef VERILATOR
+    input clk,
+    input rst
+`endif
+);
 parameter timeout = `PERIOD*1000000;
 reg finish_cocotb = 0;
 // copperv inputs
-reg clk;
-reg rst;
 wire dr_data_valid;
 wire dr_addr_ready;
 wire dw_data_addr_ready;
@@ -29,6 +32,9 @@ wire [(`BUS_WIDTH/8)-1:0] dw_strobe;
 wire ir_data_ready;
 wire ir_addr_valid;
 wire [`BUS_WIDTH-1:0] ir_addr;
+`ifndef VERILATOR
+reg clk;
+reg rst;
 initial begin
     rst = 0;
     clk = 0;
@@ -36,6 +42,8 @@ initial begin
     $display($time, ": Reset finished");
     rst = 1;
 end
+always #(`PERIOD/2) clk <= !clk;
+`endif
 `ifndef DISABLE_TIMEOUT
 initial begin
     #timeout;
@@ -43,7 +51,6 @@ initial begin
     test_failed;
 end
 `endif
-always #(`PERIOD/2) clk <= !clk;
 copperv dut (
     .clk(clk),
     .rst(rst),
@@ -104,6 +111,7 @@ initial begin
 end
 reg [`DATA_WIDTH-1:0] timer_counter;
 initial timer_counter = 0;
+reg flag = 0;
 // Fake IO
 always @(posedge clk) begin
     // Output
@@ -130,13 +138,16 @@ always @(posedge clk) begin
             32'h80000008: begin
                 force dr_data = timer_counter;
                 force dr_data_valid = 1;
-                @(posedge clk);
-                release dr_data;
-                release dr_data_valid;
+                flag = 1;
             end
         endcase
     end
     timer_counter = timer_counter + 1;
+    if (flag) begin
+        release dr_data;
+        release dr_data_valid;
+        flag = 0;
+    end
 end
 
 task unit_test_passed;
@@ -162,7 +173,7 @@ task finish_sim;
 begin
     $fwrite(fake_uart_fp, "\n# copperv testbench finished\n");
     $fclose(fake_uart_fp);  
-    if ($test$plusargs("cocotb")) begin
+    if ($test$plusargs("cocotb") > 0) begin
         finish_cocotb = 1;
     end else begin
         $finish;

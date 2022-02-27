@@ -1,4 +1,4 @@
-TEST_NAME=dhrystone
+TEST_NAME ?= dhrystone
 #TEST_NAME=uninitialized_variable_test
 ROOT_DIR = $(abspath ../..)
 RESOURCES_DIR = $(ROOT_DIR)/src/main/resources
@@ -9,7 +9,7 @@ VERILOG_SOURCES = $(RESOURCES_DIR)/rtl_v1/copperv.v \
 	$(RESOURCES_DIR)/rtl_v1/register_file.v \
 	$(RESOURCES_DIR)/rtl_v1/execution.v \
     testbench.v fake_memory.v
-COMPILE_ARGS=-I $(RESOURCES_DIR)/rtl_v1/include -I include -D DISABLE_TIMEOUT
+COMPILE_ARGS=-I$(RESOURCES_DIR)/rtl_v1/include -Iinclude -DDISABLE_TIMEOUT
 TESTS_DIR=$(ROOT_DIR)/sim/tests
 TEST_DIR=$(TESTS_DIR)/$(TEST_NAME)
 HEX_FILE=$(TEST_DIR)/$(TEST_NAME).hex
