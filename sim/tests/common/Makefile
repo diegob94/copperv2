@@ -11,10 +11,13 @@ LDFLAGS += -march=rv32i -mabi=ilp32
 crt0.o: $(COMMON_DIR)/crt0.S
 	$(CC) $(CFLAGS) -c $< -o $@
 
+syscalls.o: $(COMMON_DIR)/syscalls.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
 %.E: %.c
 	$(CC) $(CFLAGS) -E $< -o $@
 
-%.hex: %.o crt0.o
+%.hex: %.o crt0.o syscalls.o
 	$(CC) $(LDFLAGS) -Wl,-T,$(LINKER_SCRIPT),-Bstatic -nostartfiles -ffreestanding $^ -o $(@:.hex=.elf)
 	$(SCRIPTS_DIR)/utils.py debug $(@:.hex=.elf)
 	$(OBJCOPY) -O verilog $(@:.hex=.elf) $@
