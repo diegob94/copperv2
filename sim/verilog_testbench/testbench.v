@@ -100,7 +100,6 @@ fake_memory fake_mem (
     .ir_addr(ir_addr)
 );
 integer fake_uart_fp;
-integer pc_fp;
 `STRING vcd_file;
 initial begin
     if (!$value$plusargs("VCD_FILE=%s", vcd_file)) begin
@@ -109,19 +108,6 @@ initial begin
     $dumpfile(vcd_file);
     $dumpvars(0, tb);
     fake_uart_fp = $fopen("fake_uart.log","w");
-    if ($test$plusargs("dump_pc") > 0) begin
-        pc_fp = $fopen("program_counter.log","w");
-    end
-end
-reg [64-1:0] last_pc = -1;
-always @(dut.pc) begin
-    if ($test$plusargs("dump_pc") > 0) begin
-        if (last_pc != dut.pc) begin
-            $fwrite(pc_fp, "0x%0X\n", dut.pc);
-            $fflush(pc_fp);
-        end
-        last_pc = dut.pc;
-    end
 end
 reg [`DATA_WIDTH-1:0] timer_counter;
 initial timer_counter = 0;

@@ -128,6 +128,9 @@ always @(posedge clk) begin
                 memory[r_addr+1],
                 memory[r_addr+0]
         };
+        if ($test$plusargs("debug_fake_mem") > 0) begin
+            $display($time, ": fake_memory read: addr 0x%0X data 0x%0X", r_addr, r_data);
+        end
         r_data_valid <= 1;
     end else if(read_data_tran) begin
         r_data_valid <= 0;
@@ -145,6 +148,9 @@ always @(posedge clk) begin
         memory[w_addr+0] <= w_strobe[0] ? w_data[7:0]   : memory[w_addr+0];
         w_resp <= `DATA_WRITE_RESP_OK;
         w_resp_valid <= 1;
+        if ($test$plusargs("debug_fake_mem") > 0) begin
+            $display($time, ": fake_memory write: addr 0x%0X strobe 0x%0X data 0x%0X", w_addr, w_strobe, w_data);
+        end
     end else if(write_resp_tran) begin
         w_resp_valid <= 0;
     end
