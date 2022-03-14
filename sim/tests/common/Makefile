@@ -14,6 +14,9 @@ crt0.o: $(COMMON_DIR)/crt0.S
 syscalls.o: $(COMMON_DIR)/syscalls.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
+syscalls.E: $(COMMON_DIR)/syscalls.c
+	$(CC) $(CFLAGS) -E $< -o $@
+
 %.E: %.c
 	$(CC) $(CFLAGS) -E $< -o $@
 

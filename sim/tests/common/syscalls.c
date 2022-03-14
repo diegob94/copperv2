@@ -353,6 +353,7 @@ static void vprintfmt(void (*putch)(int, void**), void **putdat, const char *fmt
 
 int puts ( const char * str ){
     printstr(str);
+    printstr("\n");
     return 0; // incorrect return value, but who cares, anyway?
 }
 

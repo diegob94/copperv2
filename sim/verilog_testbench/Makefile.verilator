@@ -10,7 +10,7 @@ clean:
 .PHONY: obj_dir/sim
 obj_dir/sim:
 	mkdir -p obj_dir
-	verilator -Wall -Wno-fatal $(COMPILE_ARGS) -o $(notdir $@) --trace-fst --top-module $(TOPLEVEL) --cc --exe --build sim_main.cpp $(VERILOG_SOURCES) 
+	verilator -Wall -Wno-fatal --threads $(shell nproc) $(COMPILE_ARGS) -o $(notdir $@) --trace-fst --top-module $(TOPLEVEL) --cc --exe --build sim_main.cpp $(VERILOG_SOURCES) 
 
 .PHONY: run
 run: obj_dir/sim $(HEX_FILE)
