@@ -127,9 +127,10 @@ always @(posedge clk) begin
                 memory[r_addr+2],
                 memory[r_addr+1],
                 memory[r_addr+0]
-        };
+        }; 
         if ($test$plusargs("debug_fake_mem") > 0) begin
-            $display($time, ": fake_memory read: addr 0x%0X data 0x%0X", r_addr, r_data);
+            $display($time, ": fake_memory read: addr 0x%0X data 0x%0X", r_addr, 
+                {memory[r_addr+3],memory[r_addr+2],memory[r_addr+1],memory[r_addr+0]});
         end
         r_data_valid <= 1;
     end else if(read_data_tran) begin

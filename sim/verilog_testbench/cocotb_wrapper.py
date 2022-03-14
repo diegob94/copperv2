@@ -4,6 +4,7 @@ from regfile import RegFileWriteMonitor, RegFileReadMonitor, RegFileBfm
 from cocotb.log import SimLog
 import logging
 from cocotb.triggers import RisingEdge
+from riscv_utils import StackMonitor, PcMonitor
 
 @cocotb.test()
 async def wrapper(dut):
@@ -20,7 +21,8 @@ async def wrapper(dut):
         clock = clock,
         reset_n = reset_n,
         entity = core,
-        prefix = prefix
+        prefix = prefix,
+        relaxed_mode = True
     )
     regfile_bfm = RegFileBfm(
         clock = clock,
@@ -46,6 +48,8 @@ async def wrapper(dut):
     bus_dw_req_monitor = BusMonitor("bus_dw_req",BusWriteTransaction,bus_bfm.dw_get_request)
     regfile_write_monitor = RegFileWriteMonitor("regfile_write",regfile_bfm)
     regfile_read_monitor = RegFileReadMonitor("regfile_read",regfile_bfm)
+    pc_monitor = PcMonitor('pc_monitor',core.pc)
+    StackMonitor(regfile_write_monitor, pc_monitor)
     while True:
         await RisingEdge(dut.finish_cocotb)
         if dut.finish_cocotb.value.binstr == '1':

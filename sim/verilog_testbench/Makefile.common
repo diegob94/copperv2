@@ -1,5 +1,4 @@
 TEST ?= dhrystone
-#TEST=uninitialized_variable_test
 ROOT_DIR = $(abspath ../..)
 RESOURCES_DIR = $(ROOT_DIR)/src/main/resources
 TOPLEVEL = tb

@@ -22,6 +22,6 @@ loop:
     bgtu t1, t0, loop
 // go to _init
     .global _init
-    jal zero, _init
+    jal ra, _init
     .cfi_endproc
     .end
