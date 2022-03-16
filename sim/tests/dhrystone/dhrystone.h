@@ -385,7 +385,7 @@ extern clock_t	clock();
 
 #elif defined(__riscv)
 
-#define HZ 100000000
+#define HZ 100000000LL
 #ifndef Too_Small_Time
 #define Too_Small_Time 1
 #endif
