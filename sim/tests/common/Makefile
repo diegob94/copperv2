@@ -22,7 +22,7 @@ syscalls.E: $(COMMON_DIR)/syscalls.c
 
 %.hex: %.o crt0.o syscalls.o
 	$(CC) $(LDFLAGS) -Wl,-T,$(LINKER_SCRIPT),-Bstatic -nostartfiles -ffreestanding $^ -o $(@:.hex=.elf)
-	$(SCRIPTS_DIR)/utils.py debug $(@:.hex=.elf)
+	$(SCRIPTS_DIR)/utils.py debug $(@:.hex=.elf) || true
 	$(OBJCOPY) -O verilog $(@:.hex=.elf) $@
 
 .PHONY: clean

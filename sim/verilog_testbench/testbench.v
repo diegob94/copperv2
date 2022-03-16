@@ -8,7 +8,9 @@ module tb(
     input rst
 `endif
 );
+`ifndef DISABLE_TIMEOUT
 parameter timeout = `PERIOD*1000000;
+`endif
 reg finish_cocotb = 0;
 // copperv inputs
 wire dr_data_valid;
@@ -121,7 +123,6 @@ always @(posedge clk) begin
                 case (dw_data)
                     32'h01000001: test_passed;
                     32'h02000001: test_failed;
-                    32'h03000001: unit_test_passed;
                     default: test_failed;
                 endcase
             end
@@ -139,22 +140,19 @@ always @(posedge clk) begin
                 force dr_data = timer_counter;
                 force dr_data_valid = 1;
                 flag = 1;
+                if ($test$plusargs("debug_testbench") > 0) begin
+                    $display($time, ": read timer_counter: %0d", timer_counter);
+                end
             end
         endcase
-    end
-    timer_counter = timer_counter + 1;
-    if (flag) begin
+    end else if (flag) begin
         release dr_data;
         release dr_data_valid;
         flag = 0;
     end
+    timer_counter = timer_counter + 1;
 end
 
-task unit_test_passed;
-begin
-    $display($time, ": UNIT TEST PASSED");
-end
-endtask
 task test_passed;
 begin
     $display($time, ": TEST PASSED");
