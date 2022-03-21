@@ -5,13 +5,19 @@ COMMON_DIR ?= ../common
 LINKER_SCRIPT = $(COMMON_DIR)/linker.ld
 CC = riscv64-unknown-elf-gcc
 OBJCOPY = riscv64-unknown-elf-objcopy
-CFLAGS += -march=rv32i -mabi=ilp32 -I$(COMMON_DIR)
+override CFLAGS += -march=rv32i -mabi=ilp32 -I$(COMMON_DIR)
 LDFLAGS += -march=rv32i -mabi=ilp32
 
 crt0.o: $(COMMON_DIR)/crt0.S
 	$(CC) $(CFLAGS) -c $< -o $@
 
 syscalls.o: $(COMMON_DIR)/syscalls.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+%.o: %.S
+	$(CC) $(CFLAGS) -c $< -o $@
+
+%.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 syscalls.E: $(COMMON_DIR)/syscalls.c
