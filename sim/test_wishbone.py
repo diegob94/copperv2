@@ -5,7 +5,6 @@ from cocotb_test.simulator import run
 root_dir = Path(__file__).resolve().parent.parent
 sim_dir = root_dir/'sim'
 chisel_dir = root_dir/'work/rtl'
-rtl_v1_dir = root_dir/'src/main/resources/rtl_v1'
 
 def timescale_fix(verilog):
     verilog = Path(verilog)

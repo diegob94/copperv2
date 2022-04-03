@@ -15,6 +15,7 @@ metals.sbt
 sim_build/
 results.xml
 obj_dir/
+project/
 
 ### XilinxISE template
 # intermediate build files

@@ -5,8 +5,8 @@ from cocotb.triggers import RisingEdge, ReadOnly, Combine
 from cocotb_bus.monitors import Monitor
 from cocotb.log import SimLog
 
-from cocotb_utils import Bfm, SimpleBfm, anext
 from riscv_constants import abi_reg_map, reg_abi_map
+from cocotb_bus.monitors import BusMonitor
 
 @dataclasses.dataclass
 class RegFileWriteTransaction:
@@ -59,90 +59,68 @@ class RegFileReadTransaction:
         data2 = f'0x{self.data2:X}' if self.data2 is not None else None
         return f'RegFileReadTransaction(reg1={self.reg1_name}, data1={data1}, reg2={self.reg2_name}, data1={data2})'
 
-class RegFileBfm(SimpleBfm):
-    Signals = SimpleBfm.make_signals("RegFileBfmSignals",[
+class RegFileWriteMonitor(BusMonitor):
+    _signals = [
         "rd_en",
         "rd_addr",
         "rd_data",
+    ]
+    def __init__(self, entity, prefix, clock, signals_dict=None, **kwargs):
+        if signals_dict is not None:
+            self._signals = signals_dict
+        super().__init__(entity,prefix,clock,**kwargs)
+    async def _monitor_recv(self):
+        while True:
+            await RisingEdge(self.clock)
+            await ReadOnly()
+            if self.bus.rd_en.value:
+                transaction = RegFileWriteTransaction(
+                    reg = int(self.bus.rd_addr.value),
+                    data = int(self.bus.rd_data.value),
+                )
+                self.log.debug("Regfile write: %s", transaction)
+                self._recv(transaction)
+
+class RegFileReadMonitor(BusMonitor):
+    _signals = [
         "rs1_en",
         "rs1_addr",
         "rs1_data",
         "rs2_en",
         "rs2_addr",
         "rs2_data",
-    ])
-    def __init__(self, clock, entity=None,signals=None, reset=None, reset_n=None, period=10, period_unit="ns"):
-        super().__init__(clock, entity=entity, signals=signals, reset=reset, reset_n=reset_n, period=period, period_unit=period_unit)
-    async def recv_rd(self):
-        while(True):
-            await RisingEdge(self.clock)
-            await ReadOnly()
-            if self.bus.rd_en.value:
-                yield dict(
-                    addr = int(self.bus.rd_addr.value),
-                    data = int(self.bus.rd_data.value)
-                )
-    async def recv_rs(self):
-        while(True):
-            buf = {}
+    ]
+    def __init__(self, entity, prefix, clock, signals_dict=None, **kwargs):
+        if signals_dict is not None:
+            self._signals = signals_dict
+        super().__init__(entity,prefix,clock,**kwargs)
+    async def _monitor_recv(self):
+        while True:
+            transaction = None
             await RisingEdge(self.clock)
             await ReadOnly()
             en1 = self.bus.rs1_en.value
             en2 = self.bus.rs2_en.value
-            if (not en1) and (not en2):
-                continue
-            await RisingEdge(self.clock)
-            await ReadOnly()
-            if en1:
-                buf['addr'] = int(self.bus.rs1_addr.value)
-                buf['data'] = int(self.bus.rs1_data.value)
-            if en2:
-                buf['addr2'] = int(self.bus.rs2_addr.value)
-                buf['data2'] = int(self.bus.rs2_data.value)
-            yield buf
+            if en1 or en2:
+                await RisingEdge(self.clock)
+                await ReadOnly()
+                if en1 and en2:
+                    transaction = RegFileReadTransaction(
+                        reg1 = int(self.bus.rs1_addr.value),
+                        data1 = int(self.bus.rs1_data.value),
+                        reg2 = int(self.bus.rs2_addr.value),
+                        data2 = int(self.bus.rs2_data.value),
+                    )
+                elif en1:
+                    transaction = RegFileReadTransaction(
+                        reg1 = int(self.bus.rs1_addr.value),
+                        data1 = int(self.bus.rs1_data.value),
+                    )
+                elif en2:
+                    transaction = RegFileReadTransaction(
+                        reg1 = int(self.bus.rs2_addr.value),
+                        data1 = int(self.bus.rs2_data.value),
+                    )
+                self.log.debug('Regfile read: %s',transaction)
+                self._recv(transaction)
 
-class RegFileWriteMonitor(Monitor):
-    def __init__(self,name,bfm,callback=None,event=None):
-        self.name = name
-        self.log = SimLog(f"cocotb.{self.name}")
-        self.bfm = bfm
-        super().__init__(callback=callback,event=event)
-    async def _monitor_recv(self):
-        while True:
-            received = await anext(self.bfm.recv_rd())
-            transaction = RegFileWriteTransaction(
-                reg = received['addr'],
-                data = received['data'],
-            )
-            self.log.debug("Regfile write: %s", transaction)
-            self._recv(transaction)
-
-class RegFileReadMonitor(Monitor):
-    def __init__(self,name,bfm,callback=None,event=None):
-        self.name = name
-        self.log = SimLog(f"cocotb.{self.name}")
-        self.bfm = bfm
-        super().__init__(callback=callback,event=event)
-    async def _monitor_recv(self):
-        while True:
-            transaction = None
-            received = await anext(self.bfm.recv_rs())
-            if len(received) == 4:
-                transaction = RegFileReadTransaction(
-                    reg1 = int(received['addr']),
-                    data1 = int(received['data']),
-                    reg2 = int(received['addr2']),
-                    data2 = int(received['data2']),
-                )
-            elif 'addr' in received:
-                transaction = RegFileReadTransaction(
-                    reg1 = int(received['addr']),
-                    data1 = int(received['data']),
-                )
-            elif 'addr2' in received:
-                transaction = RegFileReadTransaction(
-                    reg1 = int(received['addr2']),
-                    data1 = int(received['data2']),
-                )
-            self.log.debug('Regfile read: %s',transaction)
-            self._recv(transaction)
