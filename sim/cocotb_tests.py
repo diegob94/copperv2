@@ -2,9 +2,10 @@ import logging
 import dataclasses
 import os
 from pathlib import Path
+from itertools import repeat
 
 import cocotb
-from cocotb.triggers import Join
+from cocotb.triggers import Join, Event
 from cocotb.log import SimLog
 import toml
 import cocotb_utils as utils
@@ -16,7 +17,7 @@ import pyuvm as uvm
 from wb_adapter_uvm import WbAdapterTest
 
 from bus import CoppervBusSourceBfm
-from wishbone import WishboneBfm
+from cocotbext.wishbone.monitor import WishboneSlave
 
 root_dir = Path(__file__).resolve().parent.parent
 sim_dir = root_dir/'sim'
@@ -86,59 +87,48 @@ async def riscv_test(dut):
 @cocotb.test(timeout_time=1,timeout_unit="us")
 async def verify_wishbone_adapter_test(dut):
     """ Wishbone adapter tests """
-    wb_bfm = WishboneBfm(
-        clock=dut.clock,
-        reset=dut.reset,
-        entity=dut,
-        prefix="wb_")
+    wbm = WishboneSlave(dut, "wb_monitor", dut.clock,
+                 signals_dict={"cyc":  "wb_cyc",
+                             "stb":  "wb_stb",
+                             "we":   "wb_we",
+                             "adr":  "wb_adr",
+                             "datwr":"wb_datwr",
+                             "datrd":"wb_datrd",
+                             "ack":  "wb_ack" })
     bus_bfm = CoppervBusSourceBfm(
         clock=dut.clock,
         reset=dut.reset,
         entity=dut,
         prefix="bus_",
     )
-    wb_bfm.start_clock()
-    await wb_bfm.reset()
+    bus_bfm.start_clock()
+    await bus_bfm.reset()
     #SimLog("bfm").setLevel(logging.DEBUG)
     uvm.ConfigDB().set(None, "*.wb_agent.*", "BFM", wb_bfm)
     uvm.ConfigDB().set(None, "*.bus_agent.*", "BFM", bus_bfm)
     await uvm.uvm_root().run_test(WbAdapterTest,keep_singletons=True)
-
-async def get_adapter_test_bfms(dut):
-    SimLog("bfm").setLevel(logging.DEBUG)
-    wb_bfm = WishboneBfm(
-        clock=dut.clock,
-        reset=dut.reset,
-        entity=dut,
-        prefix="wb_")
-    bus_bfm = CoppervBusSourceBfm(
-        clock=dut.clock,
-        reset=dut.reset,
-        entity=dut,
-        prefix="bus_")
-    wb_bfm.sink_init()
-    bus_bfm.init()
-    wb_bfm.start_clock()
-    await wb_bfm.reset()
-    return wb_bfm, bus_bfm
 
 @cocotb.test(timeout_time=1,timeout_unit="us")
 async def wishbone_adapter_read_test(dut):
     """ Wishbone adapter read test """
     data = 101
     addr = 123
-    wb_bfm, bus_bfm = await get_adapter_test_bfms(dut)
+    datGen = repeat(data)
+    SimLog("bfm").setLevel(logging.DEBUG)
+    wbm = WishboneSlave(dut,"wb",dut.clock,datgen=datGen)
+    bus_bfm = CoppervBusSourceBfm(clock=dut.clock,reset=dut.reset,entity=dut,prefix="bus_")
+    bus_bfm.init()
+    bus_bfm.start_clock()
+    await bus_bfm.reset()
     monitor = cocotb.start_soon(utils.Combine(
-        utils.anext(wb_bfm.sink_receive()),
-        utils.anext(wb_bfm.source_receive()),
+        wbm.wait_for_recv(),
         utils.anext(bus_bfm.get_read_response()),
         utils.anext(bus_bfm.get_read_request())))
     cocotb.start_soon(bus_bfm.drive_ready(1))
     await bus_bfm.send_read_request(addr)
-    cocotb.start_soon(wb_bfm.sink_reply(data))
-    wb_recv_sink, wb_recv_source, bus_resp_recv, bus_req_recv = await Join(monitor)
-    assert wb_recv_sink["addr"] == addr
-    assert wb_recv_source["data"] == data
+    wb_res, bus_resp_recv, bus_req_recv = await Join(monitor)
+    assert wb_res[0].adr == addr
+    assert wb_res[0].datrd == data
     assert bus_req_recv["addr"] == addr
     assert bus_resp_recv["data"] == data
 
@@ -148,20 +138,23 @@ async def wishbone_adapter_write_test(dut):
     data = 101
     addr = 123
     strobe = 0b0100
-    wb_bfm, bus_bfm = await get_adapter_test_bfms(dut)
+    SimLog("bfm").setLevel(logging.DEBUG)
+    wbm = WishboneSlave(dut,"wb",dut.clock)
+    bus_bfm = CoppervBusSourceBfm(clock=dut.clock,reset=dut.reset,entity=dut,prefix="bus_")
+    bus_bfm.init()
+    bus_bfm.start_clock()
+    await bus_bfm.reset()
     monitor = cocotb.start_soon(utils.Combine(
-        utils.anext(wb_bfm.sink_receive()),
-        utils.anext(wb_bfm.source_receive()),
+        wbm.wait_for_recv(),
         utils.anext(bus_bfm.get_write_response()),
         utils.anext(bus_bfm.get_write_request())))
     cocotb.start_soon(bus_bfm.drive_ready(1))
     await bus_bfm.send_write_request(data,addr,strobe)
-    cocotb.start_soon(wb_bfm.sink_reply())
-    wb_recv_sink, wb_recv_source, bus_resp_recv, bus_req_recv = await Join(monitor)
-    assert wb_recv_sink["addr"] == addr
-    assert wb_recv_sink["data"] == data
-    assert wb_recv_sink["sel"] == strobe
-    assert wb_recv_source["ack"] == True
+    wb_res, bus_resp_recv, bus_req_recv = await Join(monitor)
+    assert wb_res[0].adr == addr
+    assert wb_res[0].datwr == data
+    assert wb_res[0].sel == strobe
+    assert wb_res[0].ack == True
     assert bus_req_recv["addr"] == addr
     assert bus_req_recv["data"] == data
     assert bus_req_recv["strobe"] == strobe

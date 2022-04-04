@@ -86,8 +86,12 @@ def anext(async_generator):
     return RunningTask(async_generator.__anext__())
 
 async def Combine(*triggers):
+    def get_return_value(x):
+        if hasattr(x,"parent"):
+            return x.parent.data
+        return x.retval
     c = await cocotb.triggers.Combine(*triggers)
-    return [t.retval for t in c.triggers]
+    return [get_return_value(t) for t in c.triggers]
 
 def get_top_module(name):
     return cocotb.handle.SimHandle(cocotb.simulator.get_root_handle(name))
