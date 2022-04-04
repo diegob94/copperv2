@@ -6,7 +6,7 @@ from pathlib import Path
 from tabulate import tabulate
 
 from bus import BusReadTransaction, BusWriteTransaction, CoppervBusBfm, BusMonitor, BusSourceDriver
-from regfile import RegFileReadMonitor, RegFileWriteMonitor, RegFileReadTransaction, RegFileWriteTransaction, RegFileBfm
+from regfile import RegFileReadMonitor, RegFileWriteMonitor, RegFileReadTransaction, RegFileWriteTransaction
 from cocotb_utils import from_array, to_bytes
 from riscv_utils import StackMonitor
 
@@ -68,23 +68,6 @@ class Testbench():
             entity = self.dut,
             prefix = prefix
         )
-        regfile_bfm = RegFileBfm(
-            prefix=None,
-            clock = self.clock,
-            reset_n = self.reset_n,
-            entity = core.regfile,
-            signals_dict = dict(
-                rd_en = "rd_en",
-                rd_addr = "rd",
-                rd_data = "rd_din",
-                rs1_en = "rs1_en",
-                rs1_addr = "rs1",
-                rs1_data = "rs1_dout",
-                rs2_en = "rs2_en",
-                rs2_addr = "rs2",
-                rs2_data = "rs2_dout",
-            )
-        )
         ## Instruction read
         self.bus_ir_driver = BusSourceDriver("bus_ir",BusReadTransaction,self.bus_bfm.ir_send_response,self.bus_bfm.ir_drive_ready)
         self.bus_ir_monitor = BusMonitor("bus_ir",BusReadTransaction,self.bus_bfm.ir_get_request,self.bus_bfm.ir_get_response)
@@ -101,8 +84,31 @@ class Testbench():
         self.bus_dw_req_monitor = BusMonitor("bus_dw_req",BusWriteTransaction,self.bus_bfm.dw_get_request,
             callback=self.memory_callback,bus_name="bus_dw")
         ## Regfile
-        self.regfile_write_monitor = RegFileWriteMonitor("regfile_write",regfile_bfm)
-        self.regfile_read_monitor = RegFileReadMonitor("regfile_read",regfile_bfm)
+        self.regfile_write_monitor = RegFileWriteMonitor(
+            prefix=None,
+            clock = self.clock,
+            reset_n = self.reset_n,
+            entity = core.regfile,
+            signals_dict = dict(
+                rd_en = "rd_en",
+                rd_addr = "rd",
+                rd_data = "rd_din",
+            )
+        )
+        self.regfile_read_monitor = RegFileReadMonitor(
+            prefix=None,
+            clock = self.clock,
+            reset_n = self.reset_n,
+            entity = core.regfile,
+            signals_dict = dict(
+                rs1_en = "rs1_en",
+                rs1_addr = "rs1",
+                rs1_data = "rs1_dout",
+                rs2_en = "rs2_en",
+                rs2_addr = "rs2",
+                rs2_data = "rs2_dout",
+            )
+        )
         if enable_self_checking:
             ## Self checking
             self.scoreboard = Scoreboard(dut)
