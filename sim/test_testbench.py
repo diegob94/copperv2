@@ -36,18 +36,13 @@ def ready_valid_rtl():
     print("Generated",rtl)
     return rtl
 
-@pytest.fixture
-def fake_signals():
-    return Bfm.make_signals("FakeSignals",["a","b"],optional=["c"])
-
 @cocotb.test(timeout_time=10,timeout_unit="us")
 async def run_ready_valid_bfm_test(dut):
     """ ready/valid BFM test """
     SimLog("bfm").setLevel(logging.DEBUG)
     reference = 123
-    signals = ReadyValidBfm.Signals(ready = dut.ready, valid = dut.valid)
     payload = dict(data = dut.data)
-    bfm = ReadyValidBfm(dut.clock,signals,payload,reset=dut.reset)
+    bfm = ReadyValidBfm(entity=dut,prefix=None,clock=dut.clock,payload=payload,reset=dut.reset)
     bfm.start_clock()
     await bfm.reset()
     await bfm.drive_ready(1)
@@ -66,27 +61,4 @@ def test_ready_valid(ready_valid_rtl):
         sim_build=work_dir/'test_ready_valid',
         testcase = "run_ready_valid_bfm_test",
     )
-
-def test_signals_dataclass_required(fake_signals):
-    foo = fake_signals(a=1,b=2)
-    assert foo.a == 1
-    assert foo.b == 2
-    assert foo.c is None
-    assert 'a' in foo
-    assert 'b' in foo
-    assert not 'c' in foo
-
-def test_signals_dataclass_optional(fake_signals):
-    foo = fake_signals(a=1,b=2,c=3)
-    assert foo.a == 1
-    assert foo.b == 2
-    assert foo.c == 3
-
-def test_signals_dataclass_unexpected(fake_signals):
-    with pytest.raises(TypeError):
-        foo = fake_signals(a=1,b=2,d=4)
-
-def test_signals_dataclass_missing(fake_signals):
-    with pytest.raises(TypeError):
-        foo = fake_signals(a=1)
 

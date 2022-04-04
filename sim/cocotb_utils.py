@@ -8,48 +8,24 @@ from cocotb.triggers import RisingEdge, ReadOnly, NextTimeStep, FallingEdge
 from cocotb.clock import Clock
 from cocotb.types import Logic
 
+from cocotb_bus.bus import Bus
+
 import typing
 import dataclasses
 
 class Bfm:
-    Signals = None
-    def __init__(self,entity=None,signals=None,prefix=None):
+    _signals = []
+    _optional_signals = []
+    def __init__(self,entity,prefix,clock,reset=None,reset_n=None,period=10,period_unit="ns",signals_dict=None):
         self.log = SimLog(f"bfm.{type(self).__qualname__}")
-        actual_signals = {}
-        for field in dataclasses.fields(self.Signals):
-            signal_name = field.name
-            if prefix is not None:
-                signal_name = prefix + signal_name
-            _object = entity
-            if signals is not None:
-                _object = signals
-            handle = getattr(_object,signal_name,None)
-            if isinstance(handle,str):
-                signal_name = handle
-                handle = getattr(entity,signal_name,None)
-            if handle is None:
-                if field.default is None:
-                    continue
-                raise ValueError(f"Signal not found {signal_name}")
-            actual_signals[field.name] = handle
-        self.bus = self.Signals(**actual_signals)
-    @staticmethod
-    def make_signals(name,args,optional=()):
-        def contains(self,other):
-            return other in [i.name for i in dataclasses.fields(self) if getattr(self,i.name) is not None]
-        fields = []
-        fields.extend(args)
-        fields.extend([(key,typing.Any,dataclasses.field(default=None)) for key in optional])
-        return dataclasses.make_dataclass(name,fields,namespace={"__contains__":contains})
-
-class SimpleBfm(Bfm):
-    def __init__(self,clock,reset=None,reset_n=None,entity=None,signals=None,period=10,period_unit="ns",prefix=None):
         self.clock = clock
         self._reset = reset
         self._reset_n = reset_n
         self.period = period
         self.period_unit = period_unit
-        super().__init__(entity=entity,signals=signals,prefix=prefix)
+        if signals_dict is not None:
+            self._signals=signals_dict
+        self.bus = Bus(entity=entity,name=prefix,signals=self._signals,optional_signals=self._optional_signals)
     @property
     def in_reset(self):
         """Boolean flag showing whether the bus is in reset state or not."""

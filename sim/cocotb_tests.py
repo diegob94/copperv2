@@ -116,7 +116,7 @@ async def wishbone_adapter_read_test(dut):
     datGen = repeat(data)
     SimLog("bfm").setLevel(logging.DEBUG)
     wbm = WishboneSlave(dut,"wb",dut.clock,datgen=datGen)
-    bus_bfm = CoppervBusSourceBfm(clock=dut.clock,reset=dut.reset,entity=dut,prefix="bus_")
+    bus_bfm = CoppervBusSourceBfm(clock=dut.clock,reset=dut.reset,entity=dut,prefix="bus")
     bus_bfm.init()
     bus_bfm.start_clock()
     await bus_bfm.reset()
@@ -140,7 +140,7 @@ async def wishbone_adapter_write_test(dut):
     strobe = 0b0100
     SimLog("bfm").setLevel(logging.DEBUG)
     wbm = WishboneSlave(dut,"wb",dut.clock)
-    bus_bfm = CoppervBusSourceBfm(clock=dut.clock,reset=dut.reset,entity=dut,prefix="bus_")
+    bus_bfm = CoppervBusSourceBfm(clock=dut.clock,reset=dut.reset,entity=dut,prefix="bus")
     bus_bfm.init()
     bus_bfm.start_clock()
     await bus_bfm.reset()
@@ -159,3 +159,4 @@ async def wishbone_adapter_write_test(dut):
     assert bus_req_recv["data"] == data
     assert bus_req_recv["strobe"] == strobe
     assert bus_resp_recv["resp"] == 1
+

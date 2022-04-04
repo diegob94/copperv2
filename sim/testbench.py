@@ -17,8 +17,8 @@ class Testbench():
             expected_regfile_write = None,
             expected_data_read = None,
             expected_data_write = None,
-            instruction_memory = None, 
-            data_memory = None, 
+            instruction_memory = None,
+            data_memory = None,
             enable_self_checking = True,
             pass_fail_address = None,
             pass_fail_values = None,
@@ -61,7 +61,7 @@ class Testbench():
         ## Bus functional models
         prefix = None
         if not cocotb.plusargs.get('dut_copperv1',False):
-            prefix = "bus_"
+            prefix = "bus"
         self.bus_bfm = CoppervBusBfm(
             clock = self.clock,
             reset_n = self.reset_n,
@@ -69,10 +69,11 @@ class Testbench():
             prefix = prefix
         )
         regfile_bfm = RegFileBfm(
+            prefix=None,
             clock = self.clock,
             reset_n = self.reset_n,
             entity = core.regfile,
-            signals = RegFileBfm.Signals(
+            signals_dict = dict(
                 rd_en = "rd_en",
                 rd_addr = "rd",
                 rd_data = "rd_din",
