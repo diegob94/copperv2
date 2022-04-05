@@ -11,7 +11,6 @@ from cocotb_utils import Bfm
 
 import cocotb
 from cocotb.triggers import Join, RisingEdge
-from bus import ReadyValidBfm
 from cocotb_utils import anext
 
 root_dir = Path(__file__).resolve().parent.parent
@@ -36,29 +35,29 @@ def ready_valid_rtl():
     print("Generated",rtl)
     return rtl
 
-@cocotb.test(timeout_time=10,timeout_unit="us")
-async def run_ready_valid_bfm_test(dut):
-    """ ready/valid BFM test """
-    SimLog("bfm").setLevel(logging.DEBUG)
-    reference = 123
-    payload = dict(data = dut.data)
-    bfm = ReadyValidBfm(entity=dut,prefix=None,clock=dut.clock,payload=payload,reset=dut.reset)
-    bfm.start_clock()
-    await bfm.reset()
-    await bfm.drive_ready(1)
-    send_task = cocotb.start_soon(bfm.send_payload(data=reference))
-    received = await anext(bfm.recv_payload())
-    assert received['data'] == reference
-    await Join(send_task)
-    await RisingEdge(dut.clock)
-
-def test_ready_valid(ready_valid_rtl):
-    run(
-        verilog_sources=[ready_valid_rtl],
-        toplevel="top",
-        module="test_testbench",
-        waves = True,
-        sim_build=work_dir/'test_ready_valid',
-        testcase = "run_ready_valid_bfm_test",
-    )
+#@cocotb.test(timeout_time=10,timeout_unit="us")
+#async def run_ready_valid_bfm_test(dut):
+#    """ ready/valid BFM test """
+#    SimLog("bfm").setLevel(logging.DEBUG)
+#    reference = 123
+#    payload = dict(data = dut.data)
+#    bfm = ReadyValidBfm(entity=dut,prefix=None,clock=dut.clock,payload=payload,reset=dut.reset)
+#    bfm.start_clock()
+#    await bfm.reset()
+#    await bfm.drive_ready(1)
+#    send_task = cocotb.start_soon(bfm.send_payload(data=reference))
+#    received = await anext(bfm.recv_payload())
+#    assert received['data'] == reference
+#    await Join(send_task)
+#    await RisingEdge(dut.clock)
+#
+#def test_ready_valid(ready_valid_rtl):
+#    run(
+#        verilog_sources=[ready_valid_rtl],
+#        toplevel="top",
+#        module="test_testbench",
+#        waves = True,
+#        sim_build=work_dir/'test_ready_valid',
+#        testcase = "run_ready_valid_bfm_test",
+#    )
 
