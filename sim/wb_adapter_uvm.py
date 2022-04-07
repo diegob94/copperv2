@@ -7,7 +7,6 @@ import pyuvm as uvm
 import random
 import dataclasses
 from types import SimpleNamespace
-from cocotb_utils import anext
 
 def convert2string(self,**kwargs: Tuple[int,str]):
     res = f'{self.get_name()} : '
