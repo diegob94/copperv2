@@ -29,7 +29,9 @@ class BusReadTransaction:
             new.data = response['data']
         return new
     def to_reqresp(self):
-        return dict(request = self.addr, response = dict(data=self.data))
+        return dict(request = dict(addr=self.addr), response = dict(data=self.data))
+    def add_response(self,response):
+        self.data = response['data']
     @classmethod
     def default_transaction(cls,bus_name):
         return cls(bus_name=bus_name,addr=0,data=0)
@@ -72,6 +74,8 @@ class BusWriteTransaction:
                 request = dict(data=self.data,addr=self.addr,strobe=self.strobe),
                 response = dict(resp=self.response)
             )
+    def add_response(self,response):
+        self.response = response['resp']
     @classmethod
     def default_transaction(cls,bus_name):
         return cls(bus_name=bus_name,addr=0,data=0,strobe=0,response=0)
@@ -236,73 +240,54 @@ class CoppervBusDwMonitor(CoppervBusMonitor):
             resp_ch = dict(ready="dw_resp_ready",valid="dw_resp_valid",payload=dict(resp="dw_resp")),
             **kwargs)
 
-#class BusSourceDriver(Driver):
-#    def __init__(self,name,transaction_type,bfm_send_resp,bfm_drive_ready):
-#        self.name = name
-#        self.log = SimLog(f"cocotb.{self.name}")
-#        self.bfm_send_resp = bfm_send_resp
-#        self.bfm_drive_ready = bfm_drive_ready
-#        self.transaction_type = transaction_type
-#        super().__init__()
-#        ## reset
-#        self.append('assert_ready')
-#    async def _driver_send(self, transaction, sync: bool = True):
-#        if isinstance(transaction, self.transaction_type):
-#            transaction = self.transaction_type.to_reqresp(transaction)
-#            self.log.debug("%s responding read transaction: %s", self.name, transaction)
-#            await self.bfm_send_resp(**transaction['response'])
-#        elif transaction == "assert_ready":
-#            await self.bfm_drive_ready(True)
-#        elif transaction == "deassert_ready":
-#            await self.bfm_drive_ready(False)
-#
-#class CoppervBusSourceBfm(Bfm):
-#    _signals = [
-#        "r_addr_ready", "r_addr_valid", "r_addr_bits",
-#        "r_data_ready", "r_data_valid", "r_data_bits",
-#        "w_req_ready",  "w_req_valid",  "w_req_bits_data", "w_req_bits_addr", "w_req_bits_strobe",
-#        "w_resp_ready", "w_resp_valid", "w_resp_bits",
-#    ]
-#    def __init__(self, entity, prefix, clock, signals = None, reset=None, reset_n=None, period=10, period_unit="ns", relaxed_mode=False):
-#        super().__init__(clock=clock, entity=entity, reset=reset, reset_n=reset_n, period=period, period_unit=period_unit, prefix=prefix)
-#        addr_payload = dict(addr=self.bus.r_addr_bits)
-#        data_payload = dict(data=self.bus.r_data_bits)
-#        req_payload=dict(data=self.bus.w_req_bits_data,addr=self.bus.w_req_bits_addr,strobe=self.bus.w_req_bits_strobe)
-#        resp_payload = dict(resp=self.bus.w_resp_bits)
-#        addr_signals = dict(ready=self.bus.r_addr_ready.name,valid=self.bus.r_addr_valid.name)
-#        data_signals = dict(ready=self.bus.r_data_ready.name,valid=self.bus.r_data_valid.name)
-#        req_signals =  dict(ready=self.bus.w_req_ready.name,valid=self.bus.w_req_valid.name)
-#        resp_signals = dict(ready=self.bus.w_resp_ready.name,valid=self.bus.w_resp_valid.name)
-#        self.addr = ReadyValidBfm(prefix=None,clock=clock,entity=entity,signals_dict=addr_signals,payload=addr_payload,reset_n=reset_n,reset=reset,relaxed_mode=relaxed_mode)
-#        self.data = ReadyValidBfm(prefix=None,clock=clock,entity=entity,signals_dict=data_signals,payload=data_payload,reset_n=reset_n,reset=reset,relaxed_mode=relaxed_mode)
-#        self.req =  ReadyValidBfm(prefix=None,clock=clock,entity=entity,signals_dict=req_signals,payload=req_payload,reset_n=reset_n,reset=reset,relaxed_mode=relaxed_mode)
-#        self.resp = ReadyValidBfm(prefix=None,clock=clock,entity=entity,signals_dict=resp_signals,payload=resp_payload,reset_n=reset_n,reset=reset,relaxed_mode=relaxed_mode)
-#    def init(self):
-#        self.addr.source_init()
-#        self.req.source_init()
-#        self.data.sink_init()
-#        self.resp.sink_init()
-#    async def drive_ready(self,value):
-#        t1 = cocotb.start_soon(self.data.drive_ready(value))
-#        t2 = cocotb.start_soon(self.resp.drive_ready(value))
-#        return Combine(t1,t2)
-#    def get_read_request(self):
-#        return self.addr.recv_payload()
-#    def get_read_response(self):
-#        return self.data.recv_payload()
-#    async def send_read_request(self,addr):
-#        await self.addr.send_payload(addr=addr)
-#    def get_write_request(self):
-#        return self.req.recv_payload()
-#    def get_write_response(self):
-#        return self.resp.recv_payload()
-#    async def send_write_request(self,data,addr,strobe):
-#        await self.req.send_payload(data=data,addr=addr,strobe=strobe)
-#    async def check(self):
-#        while(True):
-#            await RisingEdge(self.clock)
-#            await ReadOnly()
-#            if self.in_reset:
-#                continue
-#            assert not (self.addr.bus.valid.value and self.req.bus.valid.value), "Cannot read and write at the same time"
+class CoppervBusDriver(Driver):
+    _signals = []
+    def __init__(self, entity, name, clock, transaction_type, bus_name,
+            req_ch, resp_ch, signals_dict=None, resp_gen=None, reset=None,
+            reset_n=None, callback=None, event=None, **kwargs):
+        self.entity = entity
+        self.name = name
+        self.clock = clock
+        self.transaction_type = transaction_type
+        self.bus_name = bus_name
+        if signals_dict is not None:
+            self._signals = signals_dict
+        self.bus = Bus(self.entity, self.name, self._signals)
+        self.req_ch = CoppervBusChannel(self.clock,bus=self.bus,**req_ch)
+        self.resp_ch = CoppervBusChannel(self.clock,bus=self.bus,**resp_ch)
+        self.req_ch.init_source()
+        self.resp_ch.init_sink()
+        super().__init__()
+    async def _driver_send(self, transaction, sync: bool = True):
+        temp = self.transaction_type.to_reqresp(transaction)
+        self.log.debug("Send transaction: %s", temp)
+        await self.req_ch.send_payload(**temp['request'])
+        response = await self.resp_ch.queue.get()
+        transaction.add_response(response)
+
+class CoppervBusRDriver(CoppervBusDriver):
+    _signals = [
+        "r_addr_ready", "r_addr_valid", "r_addr_bits",
+        "r_data_ready", "r_data_valid", "r_data_bits",
+    ]
+    def __init__(self, entity, prefix, clock, signals_dict=None, **kwargs):
+        super().__init__(entity,prefix,clock,BusReadTransaction,"bus_r",
+            signals_dict=signals_dict,
+            req_ch = dict(ready="r_addr_ready",valid="r_addr_valid",payload=dict(addr="r_addr_bits")),
+            resp_ch = dict(ready="r_data_ready",valid="r_data_valid",payload=dict(data="r_data_bits")),
+            **kwargs)
+
+class CoppervBusWDriver(CoppervBusDriver):
+    _signals = [
+        "w_req_ready",  "w_req_valid",  "w_req_bits_data",
+        "w_req_bits_addr", "w_req_bits_strobe",
+        "w_resp_ready", "w_resp_valid", "w_resp_bits",
+    ]
+    def __init__(self, entity, prefix, clock, signals_dict=None, **kwargs):
+        super().__init__(entity,prefix,clock,BusWriteTransaction,"bus_w",
+            signals_dict=signals_dict,
+            req_ch = dict(ready="w_req_ready",valid="w_req_valid",
+                payload=dict(addr="w_req_bits_addr",data="w_req_bits_data",strobe="w_req_bits_strobe")),
+            resp_ch = dict(ready="w_resp_ready",valid="w_resp_valid",payload=dict(resp="w_resp_bits")),
+            **kwargs)
 
