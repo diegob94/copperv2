@@ -1,0 +1,9 @@
+.venv/
+.pytest_cache/
+__pycache__/
+
+sim_build/
+
+.project
+.settings/
+.library_mapping.xml

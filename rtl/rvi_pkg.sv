@@ -35,7 +35,7 @@ package rvi_pkg;
     OP_VE      = 7'b1110111,
     CUSTOM_3   = 7'b1111011,
     RESERVED_4 = 7'b1111111
-  } opcode_t;
+  } opcode_e;
   typedef enum logic [9:0] {
     BEQ  = 10'b0000000000,
     BNE  = 10'b0000000001,
@@ -43,19 +43,19 @@ package rvi_pkg;
     BGE  = 10'b0000000101,
     BLTU = 10'b0000000110,
     BGEU = 10'b0000000111
-  } branch_funct_t;
+  } branch_funct_e;
   typedef enum logic [9:0] {
     LB  = 10'b0000000000,
     LH  = 10'b0000000001,
     LW  = 10'b0000000010,
     LBU = 10'b0000000100,
     LHU = 10'b0000000101
-  } load_funct_t;
+  } load_funct_e;
   typedef enum logic [9:0] {
     SB = 10'b0000000000,
     SH = 10'b0000000001,
     SW = 10'b0000000010
-  } store_funct_t;
+  } store_funct_e;
   typedef enum logic [9:0] {
     ADDI  = 10'b0000000000,
     SLTI  = 10'b0000000010,
@@ -66,7 +66,7 @@ package rvi_pkg;
     SLLI  = 10'b0000000001,
     SRLI  = 10'b0000000101,
     SRAI  = 10'b0100000101
-  } op_imm_funct_t;
+  } op_imm_funct_e;
   typedef enum logic [9:0] {
     ADD  = 10'b0000000000,
     SUB  = 10'b0100000000,
@@ -78,7 +78,7 @@ package rvi_pkg;
     SRA  = 10'b0100000101,
     OR   = 10'b0000000110,
     AND  = 10'b0000000111
-  } op_funct_t;
+  } op_funct_e;
 endpackage : rvi_pkg
 
 `endif // RVI_PKG_HEADER_GUARD
