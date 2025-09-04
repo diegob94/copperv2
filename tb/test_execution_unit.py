@@ -6,6 +6,7 @@ import cocotb
 from cocotb.runner import get_runner
 from cocotb.triggers import Timer, ClockCycles, FallingEdge, RisingEdge
 from cocotb.clock import Clock
+from rvi import Opcode, StoreFunct, OpImmFunct, Reg
 
 @cocotb.test()
 async def basic_test(dut):
@@ -15,15 +16,27 @@ async def basic_test(dut):
     await ClockCycles(dut.clk,3)
     dut.rstn.value = 1
     await ClockCycles(dut.clk,3)
-    dut.instr_opcode.value = 0x1b
-    dut.instr_rd.value = 2
-    dut.instr_rs1.value = 0
-    dut.instr_imm.value = 33
-    dut.instr_funct.value = 0x0
-    dut.instr_valid.value = 1
+    dut.instr_valid.value  = 1
+    dut.instr_opcode.value = Opcode.OP_IMM_32
+    dut.instr_rd.value     = Reg.x2
+    dut.instr_rs1.value    = Reg.zero
+    dut.instr_imm.value    = 33
+    dut.instr_funct.value  = OpImmFunct.ADDI
     await RisingEdge(dut.clk)
-    dut.instr_valid.value = 0
-    await ClockCycles(dut.clk,3)
+    dut.instr_opcode.value = Opcode.OP_IMM_32
+    dut.instr_rd.value     = Reg.x3
+    dut.instr_rs1.value    = Reg.zero
+    dut.instr_imm.value    = 13
+    dut.instr_funct.value  = OpImmFunct.ADDI
+    await RisingEdge(dut.clk)
+    dut.instr_opcode.value = Opcode.STORE
+    dut.instr_rs1.value    = Reg.x3
+    dut.instr_rs2.value    = Reg.x2
+    dut.instr_imm.value    = -6
+    dut.instr_funct.value  = StoreFunct.SW
+    await RisingEdge(dut.clk)
+    dut.instr_valid.value  = 0
+    await ClockCycles(dut.clk,10)
 
 def test_my_design_runner():
     sim = os.getenv("SIM", "verilator")
