@@ -19,77 +19,126 @@ module execution_unit import copperv_pkg::opcode_e; (
   output logic        bus_cmd_en,
   output logic        bus_cmd_we,
   input  logic [31:0] bus_rsp_rdata,
-  input  logic        bus_rsp_ready,
-
-  output logic [4:0]  regfile_cmd_rd,
-  output logic [4:0]  regfile_cmd_rs1,
-  output logic [4:0]  regfile_cmd_rs2,
-  output logic [31:0] regfile_cmd_rd_data,
-  output logic        regfile_cmd_rd_en,
-  input  logic [31:0] regfile_rsp_rs1_data,
-  input  logic [31:0] regfile_rsp_rs2_data
+  input  logic        bus_rsp_ready
 );
 import copperv_pkg::alu_op_e;
 
-opcode_e     ex_instr_opcode;
-logic [4:0]  ex_instr_rd;
-logic [4:0]  ex_instr_rs1;
-logic [4:0]  ex_instr_rs2;
+logic        dec_regfile_rd_en;
+alu_op_e     dec_alu_op;
+
 logic [31:0] ex_instr_imm;
-logic [9:0]  ex_instr_funct;
+alu_op_e     ex_alu_op;
+logic [4:0]  ex_regfile_rd;
+logic        ex_regfile_rd_en;
+logic [31:0] ex_regfile_rs1_data;
+logic [31:0] ex_regfile_rs2_data;
 
 assign instr_ready = 1;
 
-assign regfile_cmd_rs1 = instr_rs1;
-assign regfile_cmd_rs2 = instr_rs2;
+logic [31:0] regfile_mem [1:31];
+logic [4:0]  regfile_rd;
+logic [4:0]  regfile_rs1;
+logic [4:0]  regfile_rs2;
+logic [31:0] regfile_rd_data;
+logic        regfile_rd_en;
+logic [31:0] regfile_rs1_data;
+logic [31:0] regfile_rs2_data;
 
-always_ff @(posedge clk, negedge rstn) begin : ex_reg
+always_ff @(posedge clk, negedge rstn) begin : regfile_write
   if (!rstn) begin
-    ex_instr_opcode <= rvi_pkg::RESERVED_4;
-    ex_instr_rd     <= '0;
-    ex_instr_rs1    <= '0;
-    ex_instr_rs2    <= '0;
-    ex_instr_imm    <= '0;
-    ex_instr_funct  <= '0;
-  end else if (instr_valid && instr_ready) begin
-    ex_instr_opcode <= instr_opcode;
-    ex_instr_rd     <= instr_rd;
-    ex_instr_rs1    <= instr_rs1;
-    ex_instr_rs2    <= instr_rs2;
-    ex_instr_imm    <= instr_imm;
-    ex_instr_funct  <= instr_funct;
+    for (int i = 1; i < 32; i++) begin
+      regfile_mem[i] <= '0;
+    end
+  end else begin
+    if (regfile_rd_en && regfile_rd != 0) begin
+      regfile_mem[regfile_rd] <= regfile_rd_data;
+    end
   end
-end : ex_reg
+end : regfile_write
 
-alu_op_e alu_op;
-logic [31:0] alu_res;
-always_comb begin : alu_op_dec
-  alu_op = copperv_pkg::ALU_NOP;
-  case (ex_instr_opcode)
+always_comb begin : regfile_read
+  regfile_rs1_data = regfile_rs1 == 0 ? '0 : regfile_mem[regfile_rs1];
+  regfile_rs2_data = regfile_rs1 == 0 ? '0 : regfile_mem[regfile_rs2];
+end : regfile_read
+
+assign regfile_rs1 = instr_rs1;
+assign regfile_rs2 = instr_rs2;
+
+always_comb begin : control_dec
+  dec_alu_op = copperv_pkg::ALU_NOP;
+  dec_regfile_rd_en = 1'b0;
+  case (instr_opcode)
     rvi_pkg::OP_IMM_32: begin
-      case (ex_instr_funct)
-        rvi_pkg::ADDI: alu_op = copperv_pkg::ALU_ADD;
+      case (instr_funct)
+        rvi_pkg::ADDI: begin
+          dec_alu_op = copperv_pkg::ALU_ADD;
+          dec_regfile_rd_en = 1'b1;
+        end
         default:;
       endcase
     end
     default:;
   endcase
-end : alu_op_dec
+end : control_dec
 
-logic [31:0] alu_op1;
-logic [31:0] alu_op2;
-assign alu_op1 = regfile_rsp_rs1_data;
-assign alu_op2 = ex_instr_imm;
-always_comb begin : alu_compute
-  alu_res = '0;
+always_ff @(posedge clk, negedge rstn) begin : ex_reg
+  if (!rstn) begin
+    ex_instr_imm        <= '0;
+    ex_alu_op           <= copperv_pkg::ALU_NOP;
+    ex_regfile_rd       <= '0;
+    ex_regfile_rd_en    <= '0;
+    ex_regfile_rs1_data <= '0;
+    ex_regfile_rs2_data <= '0;
+  end else begin
+    if (instr_valid && instr_ready) begin
+      ex_instr_imm        <= instr_imm;
+      ex_alu_op           <= dec_alu_op;
+      ex_regfile_rd       <= instr_rd;
+      ex_regfile_rd_en    <= dec_regfile_rd_en;
+      ex_regfile_rs1_data <= regfile_rs1_data;
+      ex_regfile_rs2_data <= regfile_rs2_data;
+    end else begin
+      ex_alu_op           <= copperv_pkg::ALU_NOP;
+      ex_regfile_rd_en    <= 1'b0;
+    end
+  end
+end : ex_reg
+
+alu_op_e alu_op;
+logic [31:0] alu_dout;
+logic [31:0] alu_din1;
+logic [31:0] alu_din2;
+logic alu_comp_eq;
+logic alu_comp_lt;
+logic alu_comp_ltu;
+assign alu_din1 = regfile_rs1_data;
+assign alu_din2 = ex_instr_imm;
+assign alu_op = ex_alu_op;
+always_comb begin : alu_ops
   case (alu_op)
-    copperv_pkg::ALU_NOP:;
-    copperv_pkg::ALU_ADD: alu_res = alu_op1 + alu_op2;
-    default:;
+    copperv_pkg::ALU_NOP:  alu_dout = '0;
+    copperv_pkg::ALU_ADD:  alu_dout = alu_din1 + alu_din2; 
+    copperv_pkg::ALU_SUB:  alu_dout = alu_din1 - alu_din2;
+    copperv_pkg::ALU_AND:  alu_dout = alu_din1 & alu_din2;
+    copperv_pkg::ALU_SLL:  alu_dout = alu_din1 << alu_din2[4:0];
+    copperv_pkg::ALU_SRL:  alu_dout = alu_din1 >> alu_din2[4:0];
+    copperv_pkg::ALU_SRA:  alu_dout = $signed(alu_din1) >>> alu_din2[4:0];
+    copperv_pkg::ALU_XOR:  alu_dout = alu_din1 ^ alu_din2;
+    copperv_pkg::ALU_OR:   alu_dout = alu_din1 | alu_din2;
+    copperv_pkg::ALU_SLT:  alu_dout = 32'(alu_comp_lt);
+    copperv_pkg::ALU_SLTU: alu_dout = 32'(alu_comp_ltu);
+    default:               alu_dout = '0;
   endcase
-end : alu_compute
+end : alu_ops
 
-assign regfile_cmd_rd_data = alu_res;
-assign regfile_cmd_rd = ex_instr_rd;
+always_comb begin : alu_comp
+  alu_comp_eq  = alu_din1 == alu_din2;
+  alu_comp_lt  = $signed(alu_din1) < $signed(alu_din2);
+  alu_comp_ltu = alu_din1 < alu_din2;
+end : alu_comp
+
+assign regfile_rd_data = alu_dout;
+assign regfile_rd      = ex_regfile_rd;
+assign regfile_rd_en   = ex_regfile_rd_en;
 
 endmodule

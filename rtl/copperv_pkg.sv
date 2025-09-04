@@ -6,9 +6,18 @@
 package copperv_pkg;
   import rvi_pkg::opcode_e;
   export rvi_pkg::opcode_e;
-  typedef enum logic [1:0] {
+  typedef enum logic [3:0] {
     ALU_NOP,
-    ALU_ADD
+    ALU_ADD,
+    ALU_SUB,
+    ALU_AND,
+    ALU_SLL,
+    ALU_SRL,
+    ALU_SRA,
+    ALU_XOR,
+    ALU_OR,
+    ALU_SLT,
+    ALU_SLTU
   } alu_op_e;
 endpackage : copperv_pkg
 
