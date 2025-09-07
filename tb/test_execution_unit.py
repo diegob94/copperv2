@@ -7,6 +7,51 @@ from cocotb.runner import get_runner
 from cocotb.triggers import Timer, ClockCycles, FallingEdge, RisingEdge
 from cocotb.clock import Clock
 from rvi import Opcode, StoreFunct, OpImmFunct, Reg
+from cocotb.types import concat,LogicArray,Range
+
+def encode_instr(opcode,rs1,imm,funct,rd=None,rs2=None):
+    instr = LogicArray(range=Range(31,0))
+    opcode_la = LogicArray(opcode,Range(6,0))
+    rd_la     = LogicArray(rd,Range(4,0))
+    funct_la  = LogicArray(funct,Range(9,0))
+    rs1_la    = LogicArray(rs1,Range(4,0))
+    rs2_la    = LogicArray(rs2,Range(4,0))
+    imm_la    = LogicArray(imm,Range(11,0))
+    instr[6:0] = opcode_la
+    if opcode == Opcode.OP_IMM_32:
+        instr[11:7]  = rd_la
+        instr[14:12] = funct_la[2:0]
+        instr[19:15] = rs1_la
+        instr[31:20] = imm_la
+    elif opcode == Opcode.STORE:
+        instr[11:7]  = imm_la[4:0]
+        instr[14:12] = funct_la[2:0]
+        instr[19:15] = rs1_la
+        instr[24:20] = rs2_la
+        instr[31:25] = imm_la[11:5]
+    return instr
+
+def test_encode_instr():
+    assert encode_instr(
+        opcode=Opcode.OP_IMM_32,
+        rd=Reg.x2,
+        rs1=Reg.x5,
+        funct=OpImmFunct.ADDI,
+        imm=44).integer == 0b000000101100_00101_000_00010_0011011
+    assert encode_instr(
+        opcode=Opcode.STORE,
+        rs1=Reg.x5,
+        rs2=Reg.x2,
+        funct=StoreFunct.SW,
+        imm=-6).integer == 0b1111111_00010_00101_010_11010_0100011
+
+async def check_bus_write(dut,addr,data):
+    while True:
+        await RisingEdge(dut.clk)
+        if dut.bus_cmd_en.value and dut.bus_cmd_we.value:
+            assert dut.bus_cmd_addr.value.integer == addr
+            assert dut.bus_cmd_wdata.value.integer == data
+            break
 
 @cocotb.test()
 async def basic_test(dut):
@@ -17,26 +62,34 @@ async def basic_test(dut):
     dut.rstn.value = 1
     await ClockCycles(dut.clk,3)
     dut.instr_valid.value  = 1
-    dut.instr_opcode.value = Opcode.OP_IMM_32
-    dut.instr_rd.value     = Reg.x2
-    dut.instr_rs1.value    = Reg.zero
-    dut.instr_imm.value    = 33
-    dut.instr_funct.value  = OpImmFunct.ADDI
+    dut.instr.value = encode_instr(
+        opcode = Opcode.OP_IMM_32,
+        rd     = Reg.x2,
+        rs1    = Reg.zero,
+        imm    = 33,
+        funct  = OpImmFunct.ADDI,
+    )
     await RisingEdge(dut.clk)
-    dut.instr_opcode.value = Opcode.OP_IMM_32
-    dut.instr_rd.value     = Reg.x3
-    dut.instr_rs1.value    = Reg.zero
-    dut.instr_imm.value    = 13
-    dut.instr_funct.value  = OpImmFunct.ADDI
+    dut.instr.value = encode_instr(
+        opcode = Opcode.OP_IMM_32,
+        rd     = Reg.x3,
+        rs1    = Reg.zero,
+        imm    = 13,
+        funct  = OpImmFunct.ADDI,
+    )
     await RisingEdge(dut.clk)
-    dut.instr_opcode.value = Opcode.STORE
-    dut.instr_rs1.value    = Reg.x3
-    dut.instr_rs2.value    = Reg.x2
-    dut.instr_imm.value    = -6
-    dut.instr_funct.value  = StoreFunct.SW
+    dut.instr.value = encode_instr(
+        opcode = Opcode.STORE,
+        rs1    = Reg.x3,
+        rs2    = Reg.x2,
+        imm    = -6,
+        funct  = StoreFunct.SW,
+    )
     await RisingEdge(dut.clk)
     dut.instr_valid.value  = 0
+    cocotb.start_soon(check_bus_write(dut,addr=7,data=33))
     await ClockCycles(dut.clk,10)
+    assert False
 
 def test_my_design_runner():
     sim = os.getenv("SIM", "verilator")
