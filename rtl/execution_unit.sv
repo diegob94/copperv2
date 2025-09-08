@@ -1,7 +1,7 @@
 `include "copperv_pkg.sv"
 `default_nettype none
 
-module execution_unit import copperv_pkg::opcode_e; (
+module execution_unit (
   input  logic        clk, 
   input  logic        rstn,
   
@@ -18,15 +18,20 @@ module execution_unit import copperv_pkg::opcode_e; (
 );
 import copperv_pkg::alu_op_e;
 import copperv_pkg::regfile_rd_sel_e;
+import copperv_pkg::opcode_e;
 
 logic [31:0]     dec_instr;
-logic            dec_instr_valid;
 regfile_rd_sel_e dec_regfile_rd_sel;
 logic            dec_regfile_rd_en;
 alu_op_e         dec_alu_op;
 logic            dec_bus_en;
 logic            dec_bus_we;
+logic            dec_regfile_rs1_en;
+logic            dec_regfile_rs2_en;
+logic [31:0]     dec_regfile_rs1_data;
+logic [31:0]     dec_regfile_rs2_data;
 
+logic [31:0]     ex_instr;
 regfile_rd_sel_e ex_regfile_rd_sel;
 logic [31:0]     ex_instr_imm;
 alu_op_e         ex_alu_op;
@@ -37,6 +42,7 @@ logic [31:0]     ex_regfile_rs2_data;
 logic            ex_bus_en;
 logic            ex_bus_we;
 
+logic [31:0]     ct_instr;
 regfile_rd_sel_e ct_regfile_rd_sel;
 logic [31:0]     ct_alu_dout;
 logic [4:0]      ct_regfile_rd;
@@ -45,8 +51,6 @@ logic [31:0]     ct_regfile_rs1_data;
 logic [31:0]     ct_regfile_rs2_data;
 logic            ct_bus_en;
 logic            ct_bus_we;
-
-assign instr_ready = 1;
 
 opcode_e     instr_opcode;
 logic [4:0]  instr_rd;
@@ -70,7 +74,7 @@ logic [31:0] alu_din2;
 logic alu_comp_eq;
 logic alu_comp_lt;
 logic alu_comp_ltu;
-assign alu_din1 = regfile_rs1_data;
+assign alu_din1 = ex_regfile_rs1_data;
 assign alu_din2 = ex_instr_imm;
 assign alu_op = ex_alu_op;
 
@@ -106,6 +110,15 @@ alu alu(
   .comp_ltu(alu_comp_ltu)
 );
 
+always_ff @(posedge clk, negedge rstn) begin : dec_reg
+  if (!rstn) begin
+    dec_instr <= '0;
+  end else if (instr_valid && instr_ready) begin
+    dec_instr <= instr;
+  end
+end : dec_reg
+
+assign instr_ready = !stall;
 assign regfile_rs1 = instr_rs1;
 assign regfile_rs2 = instr_rs2;
 
@@ -113,6 +126,10 @@ always_comb begin : control_dec
   dec_alu_op = copperv_pkg::ALU_NOP;
   dec_regfile_rd_en = 1'b0;
   dec_regfile_rd_sel = copperv_pkg::RD_ALU_DOUT;
+  dec_regfile_rs1_en = 1'b0;
+  dec_regfile_rs2_en = 1'b0;
+  dec_bus_en = 1'b0;
+  dec_bus_we = 1'b0;
   case (instr_opcode)
     rvi_pkg::OP_IMM_32: begin
       case (instr_funct)
@@ -120,6 +137,7 @@ always_comb begin : control_dec
           dec_alu_op = copperv_pkg::ALU_ADD;
           dec_regfile_rd_en = 1'b1;
           dec_regfile_rd_sel = copperv_pkg::RD_ALU_DOUT;
+          dec_regfile_rs1_en = 1'b1;
         end
         default:;
       endcase
@@ -130,6 +148,21 @@ always_comb begin : control_dec
           dec_alu_op = copperv_pkg::ALU_ADD;
           dec_bus_en = 1'b1;
           dec_bus_we = 1'b1;
+          dec_regfile_rs1_en = 1'b1;
+          dec_regfile_rs2_en = 1'b1;
+        end
+        default:;
+      endcase
+    end
+    rvi_pkg::LOAD: begin
+      case (instr_funct)
+        rvi_pkg::LW: begin
+          dec_alu_op = copperv_pkg::ALU_ADD;
+          dec_bus_en = 1'b1;
+          dec_bus_we = 1'b0;
+          dec_regfile_rd_en = 1'b1;
+          dec_regfile_rd_sel = copperv_pkg::RD_MEM_RDATA;
+          dec_regfile_rs1_en = 1'b1;
         end
         default:;
       endcase
@@ -138,21 +171,40 @@ always_comb begin : control_dec
   endcase
 end : control_dec
 
-always_ff @(posedge clk, negedge rstn) begin : dec_reg
-  if (!rstn) begin
-    dec_instr <= '0;
-  end else begin
-    if (instr_valid && instr_ready) begin
-      dec_instr <= instr;
-      dec_instr_valid <= 1'b1;
-    end else begin
-      dec_instr_valid <= 1'b0;
+logic stall;
+always_comb begin : feed_forward
+  stall = 1'b0;
+  dec_regfile_rs1_data = regfile_rs1_data;
+  dec_regfile_rs2_data = regfile_rs2_data;
+  if (ct_regfile_rd_en) begin
+    if (dec_regfile_rs1_en && ct_regfile_rd == instr_rs1) begin
+      dec_regfile_rs1_data = regfile_rd_data;
+    end
+    if (dec_regfile_rs2_en && ct_regfile_rd == instr_rs2) begin
+      dec_regfile_rs2_data = regfile_rd_data;
     end
   end
-end : dec_reg
+  if (ex_regfile_rd_en) begin
+    if (dec_regfile_rs1_en && ex_regfile_rd == instr_rs1) begin
+      if (ex_regfile_rd_sel == copperv_pkg::RD_ALU_DOUT) begin
+        dec_regfile_rs1_data = alu_dout;
+      end else begin
+        stall = 1'b1;
+      end
+    end
+    if (dec_regfile_rs2_en && ex_regfile_rd == instr_rs2) begin
+      if (ex_regfile_rd_sel == copperv_pkg::RD_ALU_DOUT) begin
+        dec_regfile_rs2_data = regfile_rd_data;
+      end else begin
+        stall = 1'b1;
+      end
+    end
+  end
+end : feed_forward
 
 always_ff @(posedge clk, negedge rstn) begin : ex_reg
   if (!rstn) begin
+    ex_instr            <= '0;
     ex_instr_imm        <= '0;
     ex_alu_op           <= copperv_pkg::ALU_NOP;
     ex_regfile_rd       <= '0;
@@ -162,22 +214,28 @@ always_ff @(posedge clk, negedge rstn) begin : ex_reg
     ex_bus_en           <= 1'b0;
     ex_bus_we           <= 1'b0;
     ex_regfile_rd_sel   <= copperv_pkg::RD_ALU_DOUT;
+  end else if (!stall) begin
+    ex_instr            <= dec_instr;
+    ex_instr_imm        <= instr_imm;
+    ex_alu_op           <= dec_alu_op;
+    ex_regfile_rd       <= instr_rd;
+    ex_regfile_rd_en    <= dec_regfile_rd_en;
+    ex_regfile_rs1_data <= dec_regfile_rs1_data;
+    ex_regfile_rs2_data <= dec_regfile_rs2_data;
+    ex_bus_en           <= dec_bus_en;
+    ex_bus_we           <= dec_bus_we;
+    ex_regfile_rd_sel   <= dec_regfile_rd_sel;
   end else begin
-    if (dec_instr_valid) begin
-      ex_instr_imm        <= instr_imm;
-      ex_alu_op           <= dec_alu_op;
-      ex_regfile_rd       <= instr_rd;
-      ex_regfile_rd_en    <= dec_regfile_rd_en;
-      ex_regfile_rs1_data <= regfile_rs1_data;
-      ex_regfile_rs2_data <= regfile_rs2_data;
-      ex_bus_en           <= dec_bus_en;
-      ex_bus_we           <= dec_bus_we;
-      ex_regfile_rd_sel   <= dec_regfile_rd_sel;
-    end else begin
-      ex_alu_op           <= copperv_pkg::ALU_NOP;
-      ex_regfile_rd_en    <= 1'b0;
-      ex_bus_en           <= 1'b0;
-    end
+    ex_instr            <= '0;
+    ex_instr_imm        <= '0;
+    ex_alu_op           <= copperv_pkg::ALU_NOP;
+    ex_regfile_rd       <= '0;
+    ex_regfile_rd_en    <= 1'b0;
+    ex_regfile_rs1_data <= '0;
+    ex_regfile_rs2_data <= '0;
+    ex_bus_en           <= 1'b0;
+    ex_bus_we           <= 1'b0;
+    ex_regfile_rd_sel   <= copperv_pkg::RD_ALU_DOUT;
   end
 end : ex_reg
 
@@ -188,6 +246,7 @@ assign bus_cmd_we      = ex_bus_we;
 
 always_ff @(posedge clk, negedge rstn) begin : ct_reg
   if (!rstn) begin
+    ct_instr            <= '0;
     ct_alu_dout         <= '0;
     ct_regfile_rd       <= '0;
     ct_regfile_rd_en    <= 1'b0;
@@ -197,6 +256,7 @@ always_ff @(posedge clk, negedge rstn) begin : ct_reg
     ct_bus_we           <= 1'b0;
     ct_regfile_rd_sel   <= copperv_pkg::RD_ALU_DOUT;
   end else begin
+    ct_instr            <= ex_instr;
     ct_alu_dout         <= alu_dout;
     ct_regfile_rd       <= ex_regfile_rd;
     ct_regfile_rd_en    <= ex_regfile_rd_en;

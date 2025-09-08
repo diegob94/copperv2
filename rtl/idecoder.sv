@@ -158,16 +158,21 @@ task decode_type_i;
   output logic [31:0] imm;
   output logic [9:0]  funct;
 
+  logic [2:0] funct3;
+  logic [11:0] _imm;
+
   opcode = instr_opcode;
   rd     = instr[11:7];
   rs1    = instr[19:15];
   rs2    = '0;
-  if (opcode == rvi_pkg::OP_IMM && instr[14:12] inside {rvi_pkg::SLLI[2:0],rvi_pkg::SRLI[2:0],rvi_pkg::SRAI[2:0]}) begin
-    imm   = 32'(instr[24:20]);
-    funct = {instr[14:12],instr[31:25]};
+  funct3 = instr[14:12];
+  _imm    = instr[31:20];
+  if (opcode == rvi_pkg::OP_IMM_32 && funct3 inside {rvi_pkg::SLLI[2:0],rvi_pkg::SRLI[2:0],rvi_pkg::SRAI[2:0]}) begin
+    imm   = 32'(_imm[4:0]);
+    funct = {funct3,_imm[11:5]};
   end else begin
-    imm   = 32'($signed(instr));
-    funct = 10'(instr[14:12]);
+    imm   = 32'($signed(_imm));
+    funct = 10'(funct3);
   end
 endtask : decode_type_i
 
